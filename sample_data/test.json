@@ -1,0 +1,111 @@
+[
+  {
+        "split": "test",
+        "dataset": "MIMIC",
+        "idx": 726,
+        "subject_id": "10667992",
+        "study_id": "53900228",
+        "image_ids": [
+            "4813edd4-76d624cb-b4a2904c-96c9935f-25f89196"
+        ],
+        "image_path": "p10/p10667992/s53900228/4813edd4-76d624cb-b4a2904c-96c9935f-25f89196.jpg",
+        "question": "Does the upper mediastinum show any evidence of either goiter or tracheostomy tube?",
+        "semantic_type": "verify",
+        "question_type": "presence",
+        "template": "Does the ${object} show any evidence of either ${attribute_1} or ${attribute_2}?",
+        "template_program": "program_6",
+        "template_arguments": {
+            "object": {
+                "0": "upper mediastinum"
+            },
+            "attribute": {
+                "0": "goiter",
+                "1": "tracheostomy tube"
+            },
+            "category": {},
+            "viewpos": {},
+            "gender": {},
+            "bbox": {
+                "0": [
+                    205.99999999999997,
+                    115.42857142857143,
+                    340.2857142857142,
+                    241.1428571428571
+                ]
+            }
+        },
+        "answer": [
+            "yes"
+        ],
+        "explanation": "Yes. The image indicates a rightward deviation of the cervical trachea which may be attributed to a left-sided thyroid nodule or goiter, thus suggesting evidence of goiter in the selected area (actually the neck).",
+        "report": "Lung volumes are low.  Heart size is normal. Rightward deviation of the cervical trachea may be due to a left sided thyroid nodule or goiter. Mediastinal and hilar contours are otherwise unremarkable.  Linear opacities in the lung bases are compatible with subsegmental atelectasis.  No pleural effusion or pneumothorax is seen.  No displaced fractures are identified.",
+        "answer_type": "closed"
+    },
+  {
+        "split": "test",
+        "dataset": "SLAKE",
+        "idx": 6712,
+        "image_ids": [
+            "xmlab473.jpg"
+        ],
+        "question_type": "abnormality",
+        "template_arguments": {
+            "object": {
+                "0": "brain edema"
+            },
+            "bbox": {
+                "0": [
+                    66.0,
+                    63.0,
+                    104.0,
+                    92.0
+                ]
+            },
+            "attribute": "match",
+            "mask_value": {
+                "0": 95
+            }
+        },
+        "question": "What disease is/are shown on the upper right of brain?",
+        "answer": "brain edema, brain non-enhancing tumor",
+        "explanation": "Brain edema, brain non-enhancing tumor. The image reveals abnormalities in the upper right lobe of the brain, indicating the presence of swelling (edema) and a tumor that does not enhance with contrast, suggesting specific characteristics of the lesions.",
+        "answer_type": "open"
+    },
+  {
+    "split": "test",
+    "question": "What condition is indicated by the presence of increased echogenicity in the lens of the left eye?",
+    "dataset": "OBScan",
+    "question_type": "attribute",
+        "template_arguments": {
+            "object": {
+                "0": "lens"
+            },
+            "category": {
+                "0": "cataract"
+            },
+            "attribute": "increased echogenicity",
+            "bbox": {
+                "0": [
+                    193.39,
+                    212.36,
+                    250.86,
+                    366.95
+                ]
+            },
+            "viewpos": "left eye",
+            "mask_value": {
+                "0": 128
+            }
+        },
+        "answer": [
+            "cataract"
+        ],
+        "explanation": "The increased echogenicity observed in the lens suggests the presence of a cataract. This condition is characterized by clouding of the lens, which can lead to visual impairment.",
+        "answer_type": "closed",
+        "image_ids": [
+            "Img_5638_OS"
+        ],
+        "subject_id": "Z0478897",
+        "template_program": "program_10"
+    }
+]
