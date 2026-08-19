@@ -1,4 +1,5 @@
 import os
+import math
 import numpy as np
 import argparse
 import json
@@ -14,6 +15,49 @@ from transformers import (
 
 from src.datasets.region_vqa import RegionVQADataset
 from src.highlighter_modules.guidance import ProbCFGLogitsProcessor
+
+
+def _embedding_hook(module, inputs, output):
+    mask, alpha, _ = module._aregion
+    if output.shape[1] != mask.numel():
+        return output
+    half = output.shape[0] // 2
+    scale = torch.where(
+        mask.to(output.device).view(1, -1, 1),
+        torch.as_tensor(alpha, device=output.device, dtype=output.dtype),
+        torch.ones((), device=output.device, dtype=output.dtype),
+    )
+    return torch.cat([output[:half], output[half:] * scale], dim=0)
+
+
+def _attention_hook(module, args, kwargs):
+    mask, _, beta = module._aregion
+    attention_mask = kwargs["attention_mask"]
+    key_length = attention_mask.shape[-1]
+    mask = F.pad(mask.to(attention_mask.device, attention_mask.dtype),
+                 (0, key_length - mask.numel()))[:key_length]
+    bias = mask.view(1, 1, 1, key_length) * math.log(beta)
+    half = attention_mask.shape[0] // 2
+    kwargs["attention_mask"] = torch.cat(
+        [attention_mask[:half] + bias, attention_mask[half:]], dim=0
+    )
+    return args, kwargs
+
+
+def install_paper_highlighter(model):
+    state = [None, 0.01, 3.0]
+    for module in model.modules():
+        if module.__class__.__name__ == "Phi3ImageEmbedding":
+            module._aregion = state
+            module.register_forward_hook(_embedding_hook)
+        elif module.__class__.__name__ == "Phi3Attention":
+            module._aregion = state
+            module.register_forward_pre_hook(_attention_hook, with_kwargs=True)
+    model._aregion = state
+
+
+def set_paper_highlight(model, mask, alpha, beta):
+    model._aregion[:] = [mask.detach().bool().flatten(), float(alpha), float(beta)]
 
 
 def insert_separator(X, sep_list):
@@ -186,29 +230,35 @@ def evaluate(model, processor, eval_dataset, args, disable_tqdm=False):
 
         input_ids = torch.tensor(input_ids, dtype=torch.long, device=device).unsqueeze(0)
         attention_mask = (input_ids > -1000000).to(torch.long)
-        combined_highlight_mask = torch.tensor(combined_highlight_mask, dtype=torch.long, device=device).unsqueeze(0)
+        combined_highlight_mask = torch.tensor(combined_highlight_mask, dtype=torch.bool, device=device).unsqueeze(0)
 
         inputs['input_ids'] = input_ids
 
         hl_mask_ = combined_highlight_mask
-        hl_mask_[hl_mask_ == 1] = args.perturb_weight
-        hl_mask_[hl_mask_ == 0] = args.attn
 
         cfg_batched_input = input_ids.repeat(2, 1)
         pixel_values = inputs['pixel_values'].repeat(2, 1, 1, 1, 1)
         image_sizes = inputs['image_sizes'].repeat(2, 1)
 
+        set_paper_highlight(
+            model,
+            hl_mask_[0],
+            alpha=args.perturb_weight,
+            beta=args.attention_weight,
+        )
+
         generated_ids = model.generate(
             input_ids=cfg_batched_input,
             pixel_values=pixel_values,
-            attention_mask=torch.cat([attention_mask, hl_mask_], dim=0),
+            attention_mask=attention_mask.repeat(2, 1),
             image_sizes=image_sizes,
             eos_token_id=processor.tokenizer.eos_token_id,
             max_new_tokens=args.max_new_tokens,
             num_beams=args.num_beams,
             logits_processor=[ProbCFGLogitsProcessor(guidance_scale=args.cfg, use_log=True)],
             output_scores=True,
-            return_dict_in_generate=True
+            return_dict_in_generate=True,
+            use_cache=True,
         )
 
         batch_index = 1
@@ -318,6 +368,8 @@ def main():
 
     if args.use_lora:
         model.load_adapter(args.lora_path)
+
+    install_paper_highlighter(model)
 
     eval_dataset = RegionVQADataset(
         annotation_file=args.input_path,
